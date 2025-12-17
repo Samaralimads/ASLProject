@@ -49,9 +49,6 @@ struct ImmersiveView: View {
         
         .task {
             while !Task.isCancelled {
-                let pose = handTracker.currentPose(isRight: true)
-                print(pose.fingerExtended)
-                
                 // Update the recognized letters
                 handTracker.updateRecognizedLetters()
                 
