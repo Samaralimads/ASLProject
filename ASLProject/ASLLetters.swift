@@ -9,7 +9,7 @@ import Foundation
 import SwiftUI
 
 enum ASLLetter: String, CaseIterable {
-    case A, B, D, E, F, I, L, U, W, Y
+    case A, B, D, E, I, L, U, W, Y
 }
 
 struct ASLPose {
@@ -57,16 +57,6 @@ let aslPoses: [ASLLetter: ASLPose] = [
             .little: false
         ],
         thumbTouchingIndex: false
-    ),
-    .F: ASLPose(
-        fingerExtended: [
-            .thumb: false,
-            .index: false,
-            .middle: false,
-            .ring: false,
-            .little: false
-        ],
-        thumbTouchingIndex: true
     ),
     .I: ASLPose(
         fingerExtended: [

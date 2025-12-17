@@ -103,10 +103,15 @@ class HandTracker {
             let wrist = hand[.forearmWrist]?.position(relativeTo: nil)
         else { return false }
 
-        let tipDistance = simd_distance(tip, wrist)
-        let knuckleDistance = simd_distance(knuckle, wrist)
+        // Direction vectors
+        let knuckleDir = normalize(knuckle - wrist)
+        let tipDir = normalize(tip - wrist)
 
-        return tipDistance > knuckleDistance + 0.015
+        // Dot product tells us if they point the same way
+        let alignment = dot(knuckleDir, tipDir)
+
+        // Threshold tuned for thumb anatomy
+        return alignment > 0.85
     }
 
     
