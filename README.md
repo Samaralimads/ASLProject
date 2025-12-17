@@ -48,7 +48,13 @@ Currently implemented:
 
 - **A**
 - **B**
+- **D**
+- **E**
+- **I**
 - **L**
+- **U**
+- **W**
+- **Y**
 
 Each letter is defined by:
 - Which fingers are extended
