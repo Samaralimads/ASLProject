@@ -15,8 +15,19 @@ class HandTracker {
     private let session = ARKitSession()
     private let handData = HandTrackingProvider()
 
-   var leftHandParts: [HandSkeleton.JointName: Entity] = [:]
-   var rightHandParts: [HandSkeleton.JointName: Entity] = [:]
+    var leftHandParts: [HandSkeleton.JointName: Entity] = [:]
+    var rightHandParts: [HandSkeleton.JointName: Entity] = [:]
+    
+    // published variables that the view can observe
+    var recognizedRightLetter: ASLLetter?
+    var recognizedLeftLetter: ASLLetter?
+    
+    // Hold timer properties
+    private var rightPoseStartTime: Date?
+    private var leftPoseStartTime: Date?
+    private var lastRightLetter: ASLLetter?
+    private var lastLeftLetter: ASLLetter?
+    private let requiredHoldDuration: TimeInterval = 1.0
 
     func startHandTracking() async {
         print("Starting Hand Tracking")
@@ -81,6 +92,22 @@ class HandTracker {
 
         return tipDistance > knuckleDistance + 0.01
     }
+    
+    func isThumbExtended(
+        in hand: [HandSkeleton.JointName: Entity]
+    ) -> Bool {
+
+        guard
+            let tip = hand[.thumbTip]?.position(relativeTo: nil),
+            let knuckle = hand[.thumbKnuckle]?.position(relativeTo: nil),
+            let wrist = hand[.forearmWrist]?.position(relativeTo: nil)
+        else { return false }
+
+        let tipDistance = simd_distance(tip, wrist)
+        let knuckleDistance = simd_distance(knuckle, wrist)
+
+        return tipDistance > knuckleDistance + 0.015
+    }
 
     
     func currentPose(isRight: Bool) -> HandPose {
@@ -89,28 +116,29 @@ class HandTracker {
 
         let pose = HandPose(
             fingerExtended: [
+                .thumb: isThumbExtended(in: hand),
                 .index: isFingerExtended(
                     tip: .indexFingerTip,
                     knuckle: .indexFingerKnuckle,
-                    palm: .wrist,
+                    palm: .forearmWrist,
                     in: hand
                 ),
                 .middle: isFingerExtended(
                     tip: .middleFingerTip,
                     knuckle: .middleFingerKnuckle,
-                    palm: .wrist,
+                    palm: .forearmWrist,
                     in: hand
                 ),
                 .ring: isFingerExtended(
                     tip: .ringFingerTip,
                     knuckle: .ringFingerKnuckle,
-                    palm: .wrist,
+                    palm: .forearmWrist,
                     in: hand
                 ),
                 .little: isFingerExtended(
                     tip: .littleFingerTip,
                     knuckle: .littleFingerKnuckle,
-                    palm: .wrist,
+                    palm: .forearmWrist,
                     in: hand
                 )
             ],
@@ -137,7 +165,67 @@ class HandTracker {
 
         return simd_distance(p1, p2) < 0.025
     }
-
+    
+    func recognizedLetter(isRightHand: Bool) -> ASLLetter? {
+        let current = currentPose(isRight: isRightHand)
+        
+        for (letter, pose) in aslPoses {
+            let handPose = HandPose(fingerExtended: pose.fingerExtended, thumbTouchingIndex: pose.thumbTouchingIndex)
+            if matches(current, handPose) {
+                return letter
+            }
+        }
+        
+        return nil
+    }
+    
+    // New function with hold timer
+    func recognizedLetterWithHold(isRightHand: Bool) -> ASLLetter? {
+        let current = currentPose(isRight: isRightHand)
+        var matchedLetter: ASLLetter?
+        
+        for (letter, pose) in aslPoses {
+            let handPose = HandPose(fingerExtended: pose.fingerExtended, thumbTouchingIndex: pose.thumbTouchingIndex)
+            if matches(current, handPose) {
+                matchedLetter = letter
+                break
+            }
+        }
+        
+        if isRightHand {
+            if matchedLetter == lastRightLetter {
+                // Same pose as before
+                if let startTime = rightPoseStartTime {
+                    let elapsed = Date().timeIntervalSince(startTime)
+                    if elapsed >= requiredHoldDuration {
+                        return matchedLetter
+                    }
+                }
+            } else {
+                // New pose or no match
+                lastRightLetter = matchedLetter
+                rightPoseStartTime = matchedLetter != nil ? Date() : nil
+            }
+        } else {
+            if matchedLetter == lastLeftLetter {
+                if let startTime = leftPoseStartTime {
+                    let elapsed = Date().timeIntervalSince(startTime)
+                    if elapsed >= requiredHoldDuration {
+                        return matchedLetter
+                    }
+                }
+            } else {
+                lastLeftLetter = matchedLetter
+                leftPoseStartTime = matchedLetter != nil ? Date() : nil
+            }
+        }
+        
+        return nil
+    }
+    
+    func updateRecognizedLetters() {
+        recognizedRightLetter = recognizedLetterWithHold(isRightHand: true)
+        recognizedLeftLetter = recognizedLetterWithHold(isRightHand: false)
+    }
     
 }
-
